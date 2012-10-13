@@ -76,7 +76,7 @@ class pcap_md(Structure):
         _fields = [
             ('stat', pcap_stat),
             ('use_bpf', c_int),
-            ('TotPkts', c_u_long),
+            ('TotPkts', c_ulong),
             ('TotAccepted', c_ulong),
             ('TotDrops', c_ulong),
             ('TotMissed', c_long),

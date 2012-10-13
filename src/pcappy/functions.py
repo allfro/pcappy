@@ -223,8 +223,6 @@ pcap_dump_close = _pcap.pcap_dump_close
 #bpf_dump = _pcap.bpf_dump
 
 
-
-
 # Apple defs?
 #pcap_apple_set_exthdr = _pcap.pcap_apple_set_exthdr
 
