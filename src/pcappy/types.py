@@ -45,11 +45,19 @@ class timeval(Structure):
 
 
 class pcap_pkthdr(Structure):
-    _fields_ = [
-        ('ts', timeval),
-        ('caplen', c_uint32),
-        ('len', c_uint32)
-    ]
+    if platform == 'darwin':
+        _fields_ = [
+            ('ts', timeval),
+            ('caplen', c_uint32),
+            ('len', c_uint32),
+            ('comments', (c_char * 256))
+        ]
+    else:
+        _fields_ = [
+            ('ts', timeval),
+            ('caplen', c_uint32),
+            ('len', c_uint32)
+        ]
 
 
 class pcap_sf(Structure):

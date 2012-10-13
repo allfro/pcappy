@@ -63,7 +63,7 @@ pcap_loop = _pcap.pcap_loop
 
 pcap_next = _pcap.pcap_next
 pcap_next.restype = POINTER(c_ubyte)
-pcap_next.argtypes = [POINTER(pcap_t), POINTER(pcap_pkthdr)]
+#pcap_next.argtypes = [POINTER(pcap_t), POINTER(pcap_pkthdr)]
 
 
 pcap_next_ex = _pcap.pcap_next_ex

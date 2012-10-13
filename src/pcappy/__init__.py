@@ -3,6 +3,7 @@
 from ctypes import POINTER, byref
 from socket import *
 from struct import pack, unpack
+from os import geteuid, name
 
 from pcappy.constants import *
 from pcappy.functions import *
@@ -93,19 +94,20 @@ class PcapPyDumper(object):
     def __init__(self, pcap, filename):
         self._pcap = pcap
         self.filename = filename
-        self.pd = pcap_dump_open(self._pcap._p, self.filename)
+        self._pd = pcap_dump_open(self._pcap._p, self.filename)
 
     def close(self):
-        pcap_dump_close(self.pd)
+        if self._pd:
+            pcap_dump_close(self._pd)
 
     def tell(self):
-        r = pcap_dump_ftell(self.pd)
+        r = pcap_dump_ftell(self._pd)
         if r == -1:
             raise OSError(self._pcap.err)
         return r
 
     def flush(self):
-        r = pcap_dump_flush(self.pd)
+        r = pcap_dump_flush(self._pd)
         if r == -1:
             raise OSError(self._pcap.err)
 
@@ -118,13 +120,13 @@ class PcapPyDumper(object):
             caplen=pkt_hdr['caplen'],
             len=pkt_hdr['len']
         )
-        pcap_dump(self.pd, byref(ph), pkt_data)
+        pcap_dump(self._pd, byref(ph), pkt_data)
 
     dump = write
 
     @property
     def file(self):
-        f = pcap_dump_file(self.pd)
+        f = pcap_dump_file(self._pd)
         if not f:
             raise OSError(self._pcap.err)
         return PyFile_FromFile(f, self.filename, "wb", None)
@@ -141,7 +143,7 @@ class PcapPyBpfProgram(object):
         self._netmask = nm
         self._bpf = bpf_program()
         if 'pcap' in kwargs:
-            if pcap_compile(kwargs['pcap'], byref(self._bpf), expr, opt, _inet_atoi(nm)) == -1:
+            if pcap_compile(kwargs['pcap']._p, byref(self._bpf), expr, opt, _inet_atoi(nm)) == -1:
                 raise OSError(kwargs['pcap'].err)
         else:
             if pcap_compile(kwargs['snaplen'], kwargs['linktype'], byref(self._bpf), expr, opt, _inet_atoi(nm)) == -1:
@@ -162,7 +164,8 @@ class PcapPyBpfProgram(object):
     mask = netmask
 
     def __del__(self):
-        pcap_freecode(byref(self._bpf))
+        if self._bpf:
+            pcap_freecode(byref(self._bpf))
 
 
 class PcapPy(object):
@@ -172,15 +175,16 @@ class PcapPy(object):
         self.filename = None
         self._p = None
         self._bpf = None
+        self.last = None
 
-    def open_live(self, device, snaplen=64, promisc=1, to_ms=0):
-        self._p = pcap_open_offline(device, snaplen, promisc, to_ms, byref(self.errbuf))
+    def open_live(self, device, snaplen=64, promisc=1, to_ms=1000):
+        self._p = pcap_open_live(device, snaplen, promisc, to_ms, byref(self.errbuf))
         self.filename = None
         if not self._p:
             raise OSError(self.errbuf.raw)
 
     def open_dead(self, linktype=LINKTYPE_ETHERNET, snaplen=64):
-        self._p = pcap_open_offline(linktype, snaplen)
+        self._p = pcap_open_dead(linktype, snaplen)
         self.filename = None
         if not self._p:
             raise OSError(self.errbuf.raw)
@@ -239,26 +243,35 @@ class PcapPy(object):
         return devices
 
     def _parse_entry(self, ph, pd):
+        if platform == 'darwin':
+            return dict(
+                caplen=ph.caplen,
+                len=ph.len,
+                ts=dict(tv_usec=ph.ts.tv_usec, tv_sec=ph.ts.tv_sec),
+                comments=string_at(ph.comments)
+            ), string_at(pd, ph.caplen)
+
         return dict(
             caplen=ph.caplen,
             len=ph.len,
             ts=dict(tv_usec=ph.ts.tv_usec, tv_sec=ph.ts.tv_sec)
         ), string_at(pd, ph.caplen)
 
+
     def next_ex(self):
         ph = POINTER(pcap_pkthdr)()
         pd = POINTER(c_ubyte)()
 
         r = pcap_next_ex(self._p, byref(ph), byref(pd))
-        if r == -1:
-            raise OSError(self.err)
-        elif r == -2:
+
+        if r in [0, -2]:
             return None
+        elif r == -1:
+            raise OSError(self.err)
 
-        ph = ph.contents
+        return self._parse_entry(ph.contents, pd)
 
-        return self._parse_entry(ph, pd)
-
+#    next = next_ex
     def next(self):
         ph = pcap_pkthdr()
         pd = pcap_next(self._p, byref(ph))
@@ -268,6 +281,7 @@ class PcapPy(object):
 
         return self._parse_entry(ph, pd)
 
+    @property
     def snapshot(self):
         return pcap_snapshot(self._p)
 
@@ -391,7 +405,7 @@ class PcapPy(object):
         return _inet_ntoa(netp.value), _inet_ntoa(maskp.value)
 
     def compile(self, expr, optimize=1, mask='0.0.0.0'):
-        return PcapPyBpfProgram(expr, optimize, mask, pcap=self._p)
+        return PcapPyBpfProgram(expr, optimize, mask, pcap=self)
 
     @property
     def filter(self):
@@ -426,4 +440,5 @@ class PcapPy(object):
         return pcap_lib_version(self._p)
 
     def __del__(self):
-        pcap_close(self._p)
+        if self._p:
+            pcap_close(self._p)
