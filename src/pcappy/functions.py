@@ -157,8 +157,93 @@ pcap_dump_flush = _pcap.pcap_dump_flush
 
 pcap_dump_close = _pcap.pcap_dump_close
 
+
 #pcap_findalldevs_ex = _pcap.pcap_findalldevs_ex
 
 
+#pcap_get_selectable_fd = _pcap.pcap_get_selectable_fd
+
+
+# MSDOS definitions?
+#pcap_setbuff = _pcap.pcap_setbuff
+
+
+#pcap_setmode = _pcap.pcap_setmode
+
+
+#pcap_setmintocopy = _pcap.pcap_setmintocopy
+
+
+# Extra defs?
+#pcap_create = _pcap.pcap_create
+
+
+#pcap_set_snaplen = _pcap.pcap_set_snaplen
+
+
+#pcap_set_promisc = _pcap.pcap_set_promisc
+
+
+#pcap_can_set_rfmon = _pcap.pcap_can_set_rfmon
+
+
+#pcap_set_rfmon = _pcap.pcap_set_rfmon
+
+
+#pcap_set_timeout = _pcap.pcap_set_timeout
+
+
+#pcap_set_buffer_size = _pcap.pcap_set_buffer_size
+
+
+#pcap_activate = _pcap.pcap_activate
+
+
+#pcap_setdirection = _pcap.pcap_setdirection
+
+
+#pcap_inject = _pcap.pcap_inject
+
+
+#pcap_fopen_offline = _pcap.pcap_fopen_offline
+
+
+#pcap_offline_filter = _pcap.pcap_offline_filter
+
+
+#pcap_fileno = _pcap.pcap_fileno
+
+
+#bpf_validate = _pcap.bpf_validate
+
+
+#bpf_image = _pcap.bpf_image
+
+
+#bpf_dump = _pcap.bpf_dump
+
+
+
+
+# Apple defs?
+#pcap_apple_set_exthdr = _pcap.pcap_apple_set_exthdr
+
+
+# Apple NG defs?
+#pcap_ng_dump_open = _pcap.pcap_ng_dump_open
+
+
+#pcap_ng_dump_fopen = _pcap.pcap_ng_dump_fopen
+
+
+#pcap_ng_dump = _pcap.pcap_ng_dump
+
+
+#pcap_ng_dump_close = _pcap.pcap_ng_dump_close
+
+
+# Windows defs?
+
+#pcap_hopen_offline = _pcap.pcap_hopen_offline
 
 

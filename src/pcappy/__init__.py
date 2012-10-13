@@ -433,7 +433,7 @@ class PcapPy(object):
 
     @property
     def major_version(self):
-        return pcap_minor_version(self._p)
+        return pcap_major_version(self._p)
 
     @property
     def lib_version(self):
