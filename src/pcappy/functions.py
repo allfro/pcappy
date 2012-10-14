@@ -11,7 +11,7 @@ __copyright__ = 'Copyright 2012, PcapPy Project'
 __credits__ = ['Nadeem Douba']
 
 __license__ = 'GPL'
-__version__ = '0.1'
+__version__ = '0.2'
 __maintainer__ = 'Nadeem Douba'
 __email__ = 'ndouba@gmail.com'
 __status__ = 'Development'
@@ -20,228 +20,244 @@ __status__ = 'Development'
 _pcap = cdll.LoadLibrary(find_library('pcap'))
 
 
-pcap_open_live = _pcap.pcap_open_live
-pcap_open_live.restype = POINTER(pcap_t)
+pcap_functions = globals()
 
 
-pcap_open_dead = _pcap.pcap_open_dead
-pcap_open_dead.restype = POINTER(pcap_t)
+def load_func(name, restype=None, argtypes=[]):
+    try:
+        pcap_functions[name] = getattr(_pcap, name)
+        pcap_functions[name].argtypes = argtypes
+        pcap_functions[name].restype = restype
+    except AttributeError:
+        pass
 
 
-pcap_open_offline = _pcap.pcap_open_offline
-pcap_open_offline.restype = POINTER(pcap_t)
+load_func('pcap_lookupdev', c_char_p, [ c_char_p ])
 
 
-pcap_dump_open = _pcap.pcap_dump_open
-pcap_dump_open.restype = POINTER(pcap_dumper)
+load_func('pcap_lookupnet', c_int, [ c_char_p, c_uint32_p, c_uint32_p, c_char_p ])
 
 
-pcap_getnonblock = _pcap.pcap_getnonblock
+load_func('pcap_create', pcap_t_ptr, [ c_char_p, c_char_p ]) # Todo
 
 
-pcap_setnonblock = _pcap.pcap_setnonblock
+load_func('pcap_set_snaplen', c_int, [ pcap_t_ptr, c_int ]) # Todo
 
 
-pcap_findalldevs = _pcap.pcap_findalldevs
+load_func('pcap_set_promisc', c_int, [ pcap_t_ptr, c_int ]) # Todo
 
 
-pcap_freealldevs = _pcap.pcap_freealldevs
+load_func('pcap_can_set_rfmon', c_int, [ pcap_t_ptr ]) # Todo
 
 
-pcap_lookupdev = _pcap.pcap_lookupdev
-pcap_lookupdev.restype = c_char_p
+load_func('pcap_set_rfmon', c_int, [ pcap_t_ptr, c_int ]) # Todo
 
 
-pcap_lookupnet = _pcap.pcap_lookupnet
+load_func('pcap_set_timeout', c_int, [ pcap_t_ptr, c_int ]) # Todo
 
 
-pcap_dispatch = _pcap.pcap_dispatch
+load_func('pcap_set_buffer_size', c_int, [ pcap_t_ptr, c_int ]) # Todo
 
 
-pcap_loop = _pcap.pcap_loop
+load_func('pcap_activate', c_int, [ pcap_t_ptr ]) # Todo
 
 
-pcap_next = _pcap.pcap_next
-pcap_next.restype = POINTER(c_ubyte)
-#pcap_next.argtypes = [POINTER(pcap_t), POINTER(pcap_pkthdr)]
+load_func('pcap_apple_set_exthdr', c_int, [ pcap_t_ptr, c_int ]) # Todo
 
 
-pcap_next_ex = _pcap.pcap_next_ex
+load_func('pcap_open_live', pcap_t_ptr, [c_char_p, c_int, c_int, c_int, c_char_p])
 
 
-pcap_breakloop = _pcap.pcap_breakloop
+load_func('pcap_open_dead', pcap_t_ptr, [ c_int, c_int ])
 
 
-pcap_sendpacket = _pcap.pcap_sendpacket
+load_func('pcap_open_offline', pcap_t_ptr, [ c_char_p, c_char_p ])
 
 
-pcap_dump = _pcap.pcap_dump
+load_func('pcap_hopen_offline', pcap_t_ptr, [ c_int_p, c_char_p ]) # Todo
 
 
-pcap_dump_ftell = _pcap.pcap_dump_ftell
+load_func('pcap_fopen_offline', pcap_t_ptr, [ FILE_ptr, c_char_p ])
 
 
-pcap_compile = _pcap.pcap_compile
+load_func('pcap_close', argtypes=[ pcap_t_ptr ])
 
 
-pcap_compile_nopcap = _pcap.pcap_compile_nopcap
+load_func('pcap_loop', c_int, [ pcap_t_ptr, c_int, pcap_handler, py_object_p ])
 
 
-pcap_setfilter = _pcap.pcap_setfilter
+load_func('pcap_dispatch', c_int, [ pcap_t_ptr, c_int, pcap_handler, py_object_p ])
 
 
-pcap_freecode = _pcap.pcap_freecode
+load_func('pcap_next', c_ubyte_p, [ pcap_t_ptr, pcap_pkthdr_ptr ])
 
 
-pcap_datalink = _pcap.pcap_datalink
+load_func('pcap_next_ex', c_int, [ pcap_t_ptr, POINTER(pcap_pkthdr_ptr), POINTER(c_ubyte_p) ])
 
 
-pcap_list_datalinks = _pcap.pcap_list_datalinks
+load_func('pcap_breakloop', argtypes=[ pcap_t_ptr ])
 
 
-pcap_set_datalink = _pcap.pcap_set_datalink
+load_func('pcap_stats', c_int, [ pcap_t_ptr, pcap_stat_ptr ] )
 
 
-pcap_datalink_name_to_val = _pcap.pcap_datalink_name_to_val
+load_func('pcap_setfilter', c_int, [ pcap_t_ptr, bpf_program_ptr ])
 
 
-pcap_datalink_val_to_name = _pcap.pcap_datalink_val_to_name
-pcap_datalink_val_to_name.restype = c_char_p
+load_func('pcap_setdirection', c_int, [ pcap_t_ptr, c_int ])  # TODO
 
 
-pcap_datalink_val_to_description = _pcap.pcap_datalink_val_to_description
-pcap_datalink_val_to_description.restype = c_char_p
+load_func('pcap_getnonblock', c_int, [pcap_t_ptr, c_char_p])
 
 
-pcap_snapshot = _pcap.pcap_snapshot
+load_func('pcap_setnonblock', c_int, [pcap_t_ptr, c_int, c_char_p])
 
 
-pcap_is_swapped = _pcap.pcap_is_swapped
+load_func('pcap_inject', c_int, [ pcap_t_ptr, c_char_p, c_size_t ])
 
 
-pcap_major_version = _pcap.pcap_major_version
+load_func('pcap_sendpacket', c_int, [ pcap_t_ptr, c_char_p, c_int ])
 
 
-pcap_minor_version = _pcap.pcap_minor_version
+load_func('pcap_statustostr', c_char_p, [ c_int ]) # Todo
 
 
-pcap_file = _pcap.pcap_file
-pcap_file.restype = FILE_ptr
+load_func('pcap_strerror', c_char_p, [ c_int ]) # Todo
 
 
-pcap_stats = _pcap.pcap_stats
+load_func('pcap_geterr', c_char_p, [ pcap_t_ptr ])
 
 
-pcap_perror = _pcap.pcap_perror
+load_func('pcap_perror', argtypes=[ pcap_t_ptr, c_char_p ])
 
 
-pcap_geterr = _pcap.pcap_geterr
-pcap_geterr.restype = c_char_p
+load_func('pcap_compile', c_int, [ pcap_t_ptr, bpf_program_ptr, c_char_p, c_int, c_uint32 ])
 
 
-#pcap_strerr = _pcap.pcap_strerr
+load_func('pcap_compile_nopcap', c_int, [ c_int, c_int, bpf_program_ptr, c_char_p, c_int, c_uint32 ])
 
 
-pcap_lib_version = _pcap.pcap_lib_version
-pcap_lib_version.restype = c_char_p
+load_func('pcap_freecode', argtypes=[ bpf_program_ptr ])
 
 
-pcap_close = _pcap.pcap_close
+load_func('pcap_offline_filter', c_int, [ bpf_program_ptr, pcap_pkthdr_ptr, c_char_p ]) # Todo
 
 
-pcap_dump_file = _pcap.pcap_dump_file
-pcap_dump_file.restype = FILE_ptr
+load_func('pcap_datalink', c_int, [ pcap_t_ptr ])
 
-pcap_dump_flush = _pcap.pcap_dump_flush
 
+load_func('pcap_datalink_ext', c_int, [ pcap_t_ptr ]) # Todo
 
-pcap_dump_close = _pcap.pcap_dump_close
 
+load_func('pcap_list_datalinks', c_int, [ pcap_t_ptr, POINTER(c_int_p) ])
 
-#pcap_findalldevs_ex = _pcap.pcap_findalldevs_ex
 
+load_func('pcap_set_datalink', c_int, [ pcap_t_ptr, c_int ])
 
-#pcap_get_selectable_fd = _pcap.pcap_get_selectable_fd
 
+load_func('pcap_free_datalinks', argtypes=[ c_int_p ])
 
-# MSDOS definitions?
-#pcap_setbuff = _pcap.pcap_setbuff
 
+load_func('pcap_datalink_name_to_val', c_int, [ c_char_p ])
 
-#pcap_setmode = _pcap.pcap_setmode
 
+load_func('pcap_datalink_val_to_name', c_char_p, [ c_int ])
 
-#pcap_setmintocopy = _pcap.pcap_setmintocopy
 
+load_func('pcap_datalink_val_to_description', c_char_p, [ c_int ])
 
-# Extra defs?
-#pcap_create = _pcap.pcap_create
 
+load_func('pcap_snapshot', c_int, [ pcap_t_ptr ])
 
-#pcap_set_snaplen = _pcap.pcap_set_snaplen
 
+load_func('pcap_is_swapped', c_int, [ pcap_t_ptr ])
 
-#pcap_set_promisc = _pcap.pcap_set_promisc
 
+load_func('pcap_major_version', c_int, [ pcap_t_ptr ])
 
-#pcap_can_set_rfmon = _pcap.pcap_can_set_rfmon
 
+load_func('pcap_minor_version', c_int, [ pcap_t_ptr ])
 
-#pcap_set_rfmon = _pcap.pcap_set_rfmon
 
+load_func('pcap_file', FILE_ptr, [ pcap_t_ptr ])
 
-#pcap_set_timeout = _pcap.pcap_set_timeout
 
+load_func('pcap_fileno', c_int, [ pcap_t_ptr ])
 
-#pcap_set_buffer_size = _pcap.pcap_set_buffer_size
 
+load_func('pcap_dump_open', pcap_dumper_t_ptr, [ pcap_t_ptr, c_char_p ])
 
-#pcap_activate = _pcap.pcap_activate
 
+load_func('pcap_dump_fopen', pcap_dumper_t_ptr, [ pcap_t_ptr, FILE_ptr ])
 
-#pcap_setdirection = _pcap.pcap_setdirection
 
+load_func('pcap_dump_file', FILE_ptr, [ pcap_dumper_t_ptr ])
 
-#pcap_inject = _pcap.pcap_inject
 
+load_func('pcap_dump_ftell', c_long, [ pcap_dumper_t_ptr ])
 
-#pcap_fopen_offline = _pcap.pcap_fopen_offline
 
+load_func('pcap_dump_flush', c_int, [ pcap_dumper_t_ptr ])
 
-#pcap_offline_filter = _pcap.pcap_offline_filter
 
+load_func('pcap_dump_close', argtypes=[ pcap_dumper_t_ptr ])
 
-#pcap_fileno = _pcap.pcap_fileno
 
+load_func('pcap_dump', argtypes=[ pcap_dumper_t_ptr, pcap_pkthdr_ptr, c_char_p ])
 
-#bpf_validate = _pcap.bpf_validate
 
+load_func('pcap_ng_dump_open', pcap_dumper_t_ptr, [ pcap_t_ptr, c_char_p ]) # Todo
 
-#bpf_image = _pcap.bpf_image
 
+load_func('pcap_ng_dump_fopen', pcap_dumper_t_ptr, [ pcap_t_ptr, FILE_ptr ]) # Todo
 
-#bpf_dump = _pcap.bpf_dump
 
+load_func('pcap_ng_dump', argtypes=[ pcap_dumper_t_ptr, pcap_pkthdr_ptr, c_char_p ]) # Todo
 
-# Apple defs?
-#pcap_apple_set_exthdr = _pcap.pcap_apple_set_exthdr
 
+load_func('pcap_ng_dump_close', argtypes=[ pcap_dumper_t_ptr ]) # Todo
 
-# Apple NG defs?
-#pcap_ng_dump_open = _pcap.pcap_ng_dump_open
 
+load_func('pcap_findalldevs', c_int, [ POINTER(pcap_if_t_ptr), c_char_p ])
 
-#pcap_ng_dump_fopen = _pcap.pcap_ng_dump_fopen
 
+load_func('pcap_freealldevs', argtypes=[ pcap_if_t_ptr ])
 
-#pcap_ng_dump = _pcap.pcap_ng_dump
 
+load_func('pcap_lib_version', c_char_p)
 
-#pcap_ng_dump_close = _pcap.pcap_ng_dump_close
 
+load_func('bpf_filter', c_uint, [ bpf_insn_ptr, c_char_p, c_uint, c_uint ]) # Todo
 
-# Windows defs?
 
-#pcap_hopen_offline = _pcap.pcap_hopen_offline
+load_func('bpf_validate', c_int, [ bpf_insn_ptr, c_int ]) # Todo
+
+
+load_func('bpf_image', c_char_p, [ bpf_insn_ptr, c_int ]) # Todo
+
+
+load_func('bpf_dump', argtypes=[ bpf_program_ptr, c_int ]) # Todo
+
+
+load_func('pcap_setbuff', c_int, [ pcap_t_ptr, c_int ]) # Todo
+
+
+load_func('pcap_setmode', c_int, [ pcap_t_ptr, c_int ]) # Todo
+
+
+load_func('pcap_setmintocopy', c_int, [ pcap_t_ptr, c_int ]) # Todo
+
+
+load_func('pcap_stats_ex', c_int, [ pcap_t_ptr, pcap_stat_ex_ptr ]) # Todo
+
+
+load_func('pcap_set_wait', [ pcap_t_ptr, yield_, c_int ]) # Todo
+
+
+load_func('pcap_mac_packets', c_ulong) # Todo
+
+
+load_func('pcap_get_selectable_fd', c_int, [ pcap_t_ptr ]) # Todo
+
 
 

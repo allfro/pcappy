@@ -1,17 +1,17 @@
 #!/usr/bin/env python
 
-from pcappy import PcapPy
+from pcappy import PcapPyOffline, open_offline
 from sys import argv
 
 if not argv[1:]:
     print 'usage: %s <dump.pcap>' % argv[0]
     exit(-1)
 
-
-p = PcapPy()
-
 # Open the file
-p.open_offline(argv[1])
+p = open_offline(argv[1])
+
+# or this instead: p = PcapPyOffline(argv[1])
+
 
 # Parse only HTTP traffic
 p.filter = 'tcp and port 80'
