@@ -298,7 +298,7 @@ class pcap_rmtauth(Structure):
     ]
 
 
-pcap_rmtauth = POINTER(pcap_rmtauth)
+pcap_rmtauth_ptr = POINTER(pcap_rmtauth)
 
 
 class pcap_dumper_t(Structure):

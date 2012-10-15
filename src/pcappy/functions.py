@@ -29,7 +29,9 @@ def load_func(name, restype=None, argtypes=[]):
         pcap_functions[name].argtypes = argtypes
         pcap_functions[name].restype = restype
     except AttributeError:
-        pass
+        def _pcap_unsupported(*args, **kwargs):
+            raise NotImplementedError('This version of libpcap does not appear to be compiled with %s support.' % repr(name))
+        pcap_functions[name] = _pcap_unsupported
 
 
 load_func('pcap_lookupdev', c_char_p, [ c_char_p ])
@@ -38,28 +40,28 @@ load_func('pcap_lookupdev', c_char_p, [ c_char_p ])
 load_func('pcap_lookupnet', c_int, [ c_char_p, c_uint32_p, c_uint32_p, c_char_p ])
 
 
-load_func('pcap_create', pcap_t_ptr, [ c_char_p, c_char_p ]) # Todo
+load_func('pcap_create', pcap_t_ptr, [ c_char_p, c_char_p ])
 
 
-load_func('pcap_set_snaplen', c_int, [ pcap_t_ptr, c_int ]) # Todo
+load_func('pcap_set_snaplen', c_int, [ pcap_t_ptr, c_int ])
 
 
-load_func('pcap_set_promisc', c_int, [ pcap_t_ptr, c_int ]) # Todo
+load_func('pcap_set_promisc', c_int, [ pcap_t_ptr, c_int ])
 
 
-load_func('pcap_can_set_rfmon', c_int, [ pcap_t_ptr ]) # Todo
+load_func('pcap_can_set_rfmon', c_int, [ pcap_t_ptr ])
 
 
-load_func('pcap_set_rfmon', c_int, [ pcap_t_ptr, c_int ]) # Todo
+load_func('pcap_set_rfmon', c_int, [ pcap_t_ptr, c_int ])
 
 
-load_func('pcap_set_timeout', c_int, [ pcap_t_ptr, c_int ]) # Todo
+load_func('pcap_set_timeout', c_int, [ pcap_t_ptr, c_int ])
 
 
-load_func('pcap_set_buffer_size', c_int, [ pcap_t_ptr, c_int ]) # Todo
+load_func('pcap_set_buffer_size', c_int, [ pcap_t_ptr, c_int ])
 
 
-load_func('pcap_activate', c_int, [ pcap_t_ptr ]) # Todo
+load_func('pcap_activate', c_int, [ pcap_t_ptr ])
 
 
 load_func('pcap_apple_set_exthdr', c_int, [ pcap_t_ptr, c_int ]) # Todo
@@ -104,7 +106,7 @@ load_func('pcap_stats', c_int, [ pcap_t_ptr, pcap_stat_ptr ] )
 load_func('pcap_setfilter', c_int, [ pcap_t_ptr, bpf_program_ptr ])
 
 
-load_func('pcap_setdirection', c_int, [ pcap_t_ptr, c_int ])  # TODO
+load_func('pcap_setdirection', c_int, [ pcap_t_ptr, c_int ])
 
 
 load_func('pcap_getnonblock', c_int, [pcap_t_ptr, c_char_p])
@@ -119,10 +121,10 @@ load_func('pcap_inject', c_int, [ pcap_t_ptr, c_char_p, c_size_t ])
 load_func('pcap_sendpacket', c_int, [ pcap_t_ptr, c_char_p, c_int ])
 
 
-load_func('pcap_statustostr', c_char_p, [ c_int ]) # Todo
+load_func('pcap_statustostr', c_char_p, [ c_int ])
 
 
-load_func('pcap_strerror', c_char_p, [ c_int ]) # Todo
+load_func('pcap_strerror', c_char_p, [ c_int ])
 
 
 load_func('pcap_geterr', c_char_p, [ pcap_t_ptr ])
@@ -146,7 +148,7 @@ load_func('pcap_offline_filter', c_int, [ bpf_program_ptr, pcap_pkthdr_ptr, c_ch
 load_func('pcap_datalink', c_int, [ pcap_t_ptr ])
 
 
-load_func('pcap_datalink_ext', c_int, [ pcap_t_ptr ]) # Todo
+load_func('pcap_datalink_ext', c_int, [ pcap_t_ptr ])
 
 
 load_func('pcap_list_datalinks', c_int, [ pcap_t_ptr, POINTER(c_int_p) ])
@@ -206,19 +208,22 @@ load_func('pcap_dump_close', argtypes=[ pcap_dumper_t_ptr ])
 load_func('pcap_dump', argtypes=[ pcap_dumper_t_ptr, pcap_pkthdr_ptr, c_char_p ])
 
 
-load_func('pcap_ng_dump_open', pcap_dumper_t_ptr, [ pcap_t_ptr, c_char_p ]) # Todo
+load_func('pcap_ng_dump_open', pcap_dumper_t_ptr, [ pcap_t_ptr, c_char_p ])
 
 
-load_func('pcap_ng_dump_fopen', pcap_dumper_t_ptr, [ pcap_t_ptr, FILE_ptr ]) # Todo
+load_func('pcap_ng_dump_fopen', pcap_dumper_t_ptr, [ pcap_t_ptr, FILE_ptr ])
 
 
-load_func('pcap_ng_dump', argtypes=[ pcap_dumper_t_ptr, pcap_pkthdr_ptr, c_char_p ]) # Todo
+load_func('pcap_ng_dump', argtypes=[ pcap_dumper_t_ptr, pcap_pkthdr_ptr, c_char_p ])
 
 
-load_func('pcap_ng_dump_close', argtypes=[ pcap_dumper_t_ptr ]) # Todo
+load_func('pcap_ng_dump_close', argtypes=[ pcap_dumper_t_ptr ])
 
 
 load_func('pcap_findalldevs', c_int, [ POINTER(pcap_if_t_ptr), c_char_p ])
+
+
+load_func('pcap_findalldevs_ex', c_int, [ c_char_p, pcap_rmtauth_ptr, POINTER(pcap_if_t_ptr), c_char_p ])
 
 
 load_func('pcap_freealldevs', argtypes=[ pcap_if_t_ptr ])
@@ -257,7 +262,7 @@ load_func('pcap_set_wait', [ pcap_t_ptr, yield_, c_int ]) # Todo
 load_func('pcap_mac_packets', c_ulong) # Todo
 
 
-load_func('pcap_get_selectable_fd', c_int, [ pcap_t_ptr ]) # Todo
+load_func('pcap_get_selectable_fd', c_int, [ pcap_t_ptr ])
 
 
 

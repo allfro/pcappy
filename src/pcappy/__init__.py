@@ -26,6 +26,7 @@ __all__ = [
     'open_offline',
     'open_dead',
     'open_live',
+    'findalldevs',
     'PcapPyException'
 ]
 
@@ -165,27 +166,53 @@ class PcapPyInterface(object):
 
 class PcapPyDumper(object):
 
-    def __init__(self, pcap, filename):
+    def __init__(self, pcap, file_, ng=False):
         self._pcap = pcap
-        self.filename = filename
-        self._pd = pcap_dump_open(self._pcap._p, self.filename)
+        self.filename = file_
+        self._pd = None
+        self._ng = ng
+        if self._ng:
+            if isinstance(file_, file):
+                self._pd = pcap_ng_dump_fopen(self._pcap._p, PyFile_AsFile(file_))
+            else:
+                self._pd = pcap_ng_dump_open(self._pcap._p, self.filename)
+        else:
+            if isinstance(file_, file):
+                self._pd = pcap_dump_fopen(self._pcap._p, PyFile_AsFile(file_))
+            else:
+                self._pd = pcap_dump_open(self._pcap._p, self.filename)
+        if not self._pd:
+            raise PcapPyException(self._pcap.err)
 
     def close(self):
-        if self._pd:
-            pcap_dump_close(self._pd)
+        if not self.closed:
+            self.flush()
+            if self._ng:
+                pcap_ng_dump_close(self._pd)
+            else:
+                pcap_dump_close(self._pd)
+            self._pd = None
 
     def tell(self):
+        if self.closed:
+            raise ValueError('I/O operation on closed file')
         r = pcap_dump_ftell(self._pd)
         if r == -1:
             raise PcapPyException(self._pcap.err)
         return r
 
+    ftell = tell
+
     def flush(self):
+        if self.closed:
+            raise ValueError('I/O operation on closed file')
         r = pcap_dump_flush(self._pd)
         if r == -1:
             raise PcapPyException(self._pcap.err)
 
     def write(self, pkt_hdr, pkt_data):
+        if self.closed:
+            raise ValueError('I/O operation on closed file')
         ph = pcap_pkthdr(
             ts=timeval(
                 tv_sec=pkt_hdr['ts']['tv_sec'],
@@ -194,16 +221,28 @@ class PcapPyDumper(object):
             caplen=pkt_hdr['caplen'],
             len=pkt_hdr['len']
         )
-        pcap_dump(self._pd, pointer(ph), pkt_data)
+        if self._ng:
+            pcap_ng_dump(self._pd, pointer(ph), pkt_data)
+        else:
+            pcap_dump(self._pd, pointer(ph), pkt_data)
 
-    dump = write
+    dump = ng_dump = write
+
+    def fileno(self):
+        return self.file.fileno()
 
     @property
     def file(self):
+        if self.closed:
+            raise ValueError('I/O operation on closed file')
         f = pcap_dump_file(self._pd)
         if not f:
             raise PcapPyException(self._pcap.err)
-        return PyFile_FromFile(f, self.filename, "wb", None)
+        return PyFile_FromFile(f, self.filename, 'wb', None)
+
+    @property
+    def closed(self):
+        return self._pd is None
 
     def __del__(self):
         self.close()
@@ -219,8 +258,7 @@ class PcapPyBpfProgram(object):
         if 'pcap' in kwargs:
             if pcap_compile(kwargs['pcap']._p, pointer(self._bpf), expr, opt, _inet_atoi(nm)) == -1:
                 raise PcapPyException(kwargs['pcap'].err)
-        else:
-            if pcap_compile_nopcap(kwargs['snaplen'], kwargs['linktype'], pointer(self._bpf), expr, opt, _inet_atoi(nm)) == -1:
+        elif pcap_compile_nopcap(kwargs['snaplen'], kwargs['linktype'], pointer(self._bpf), expr, opt, _inet_atoi(nm)) == -1:
                 raise PcapPyException(kwargs['pcap'].err)
 
     @property
@@ -254,6 +292,93 @@ def open_offline(file):
     return PcapPyOffline(file)
 
 
+def _findalldevs(devs):
+    top = devs
+    devices = []
+
+    while top:
+        top = top.contents
+        devices.append(PcapPyInterface(top))
+        top = top.next
+
+    pcap_freealldevs(devs)
+
+    return devices
+
+
+def findalldevs():
+    errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
+    devs = pcap_if_t_ptr()
+
+    if pcap_findalldevs(pointer(devs), c_char_p((addressof(errbuf)))) == -1:
+        raise PcapPyException(errbuf.raw)
+
+    return _findalldevs(devs)
+
+
+def findalldevs_ex(source, username='', password=''):
+    errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
+    ra = pcap_rmtauth()
+    ra.type = RPCAP_RMTAUTH_PWD if username and password else RPCAP_RMTAUTH_NULL
+    ra.username = username
+    ra.password = password
+
+    devs = pcap_if_t_ptr()
+
+    if pcap_findalldevs_ex(source, pointer(ra), pointer(devs), c_char_p((addressof(errbuf)))) == -1:
+        raise PcapPyException(errbuf.raw)
+
+    return _findalldevdevs(devs)
+
+
+def lookupdev():
+    errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
+    r = pcap_lookupdev(c_char_p((addressof(errbuf))))
+    if not r:
+        raise PcapPyException(errbuf.raw)
+    return r
+
+
+def datalink_val_to_name(val):
+    return pcap_datalink_val_to_name(val)
+
+
+def datalink_name_to_val(name):
+    return pcap_datalink_name_to_val(name)
+
+
+def datalink_val_to_description(val):
+    return pcap_datalink_val_to_description(val)
+
+
+def lookupnet(device):
+    errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
+    netp = c_uint32()
+    maskp = c_uint32()
+
+    r = pcap_lookupnet(
+        device,
+        pointer(netp),
+        pointer(maskp),
+        c_char_p(addressof(errbuf))
+    )
+    if r == -1:
+        raise PcapPyException(errbuf.raw)
+    return _inet_ntoa(netp.value), _inet_ntoa(maskp.value)
+
+
+def statustostr(status):
+    return pcap_statustostr(status)
+
+
+def strerror(status):
+    return pcap_strerror(status)
+
+
+def compile_nopcap(snaplen=64, linktype=LINKTYPE_ETHERNET, expr='', optimize=1, mask='0.0.0.0'):
+    PcapPyBpfProgram(expr, optimize, mask, linktype=linktype, snaplen=snaplen)
+
+
 class PcapPyBase(object):
 
     _is_base = True
@@ -261,52 +386,23 @@ class PcapPyBase(object):
     def __init__(self):
         if self._is_base:
             raise Exception('Cannot initialize base class. Use PcapPyLive, PcapPyDead, or PcapPyOffline instead.')
-        self.errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
         self._p = None
         self._bpf = None
 
-    def _parsedevs(self, devs):
-        top = devs
-        devices = []
+    @classmethod
+    def findalldevs(cls):
+        return findalldevs()
 
-        while top:
-            top = top.contents
-            devices.append(PcapPyInterface(top))
-            top = top.next
-
-        pcap_freealldevs(devs)
-
-        return devices
-
-    def findalldevs(self):
-        devs = pcap_if_t_ptr()
-
-        if pcap_findalldevs(pointer(devs), c_char_p((addressof(self.errbuf)))) == -1:
-            raise PcapPyException(self.errbuf.raw)
-
-        return self._parsedevs(devs)
-
-    def findalldevs_ex(self, source, username='', password=''):
-        ra = pcap_rmtauth()
-        ra.type = RPCAP_RMTAUTH_PWD if username and password else RPCAP_RMTAUTH_NULL
-        ra.username = username
-        ra.password = password
-
-        devs = POINTER(pcap_if)()
-
-        if pcap_findalldevs_ex(source, pointer(ra), pointer(devs), c_char_p((addressof(self.errbuf)))) == -1:
-            raise PcapPyException(errbuf.raw)
-
-        return self._parsedevs(devs)
+    @classmethod
+    def findalldevs_ex(cls, source, username='', password=''):
+        return findalldevs_ex(source, username, password)
 
     def geterr(self):
         return self.err
 
+    @classmethod
     def lookupdev(self):
-        r = pcap_lookupdev(c_char_p((addressof(self.errbuf))))
-        if not r:
-            raise PcapPyException(self.errbuf.raw)
-        return r
+        return lookupdev
 
     def list_datalinks(self):
         dlt_buf = c_int_p()
@@ -324,37 +420,21 @@ class PcapPyBase(object):
 
         return l
 
-    def datalink_val_to_name(self, val):
-        r = pcap_datalink_val_to_name(val)
-        if not r:
-            raise PcapPyException(self.err)
-        return r
+    @classmethod
+    def datalink_val_to_name(cls, val):
+        return datalink_val_to_name(val)
 
-    def datalink_name_to_val(self, name):
-        r = pcap_datalink_name_to_val(name)
-        if r == -1:
-            raise PcapPyException(self.err)
-        return r
+    @classmethod
+    def datalink_name_to_val(cls, name):
+        return datalink_name_to_val(name)
 
-    def datalink_val_to_description(self, val):
-        r = pcap_datalink_val_to_description(val)
-        if not val:
-            raise PcapPyException(self.err)
-        return r
+    @classmethod
+    def datalink_val_to_description(cls, val):
+        return datalink_val_to_description(val)
 
-    def lookupnet(self, device):
-        netp = c_uint32()
-        maskp = c_uint32()
-
-        r = pcap_lookupnet(
-            device,
-            pointer(netp),
-            pointer(maskp),
-            c_char_p(addressof(self.errbuf))
-        )
-        if r == -1:
-            raise PcapPyException(self.errbuf.raw)
-        return _inet_ntoa(netp.value), _inet_ntoa(maskp.value)
+    @classmethod
+    def lookupnet(cls, device):
+        return lookupnet(device)
 
     def compile(self, expr, optimize=1, mask='0.0.0.0'):
         return PcapPyBpfProgram(expr, optimize, mask, pcap=self)
@@ -364,7 +444,15 @@ class PcapPyBase(object):
 
     @classmethod
     def compile_nopcap(cls, snaplen=64, linktype=LINKTYPE_ETHERNET, expr='', optimize=1, mask='0.0.0.0'):
-        return PcapPyBpfProgram(expr, optimize, mask, linktype=linktype, snaplen=snaplen)
+        return compile_nopcap(snaplen, linktype, expr, optimize, mask)
+
+    @classmethod
+    def statustostr(cls, status):
+        return statustostr(status)
+
+    @classmethod
+    def strerror(cls, status):
+        return strerror(status)
 
     @property
     def is_swapped(self):
@@ -387,6 +475,13 @@ class PcapPyBase(object):
         return pcap_geterr(self._p)
 
     @property
+    def datalink_ext(self):
+        r = pcap_datalink_ext(self._p)
+        if r == -1:
+            raise PcapPyException(self.err)
+        return r
+
+    @property
     def datalink(self):
         r = pcap_datalink(self._p)
         if r == -1:
@@ -395,12 +490,17 @@ class PcapPyBase(object):
 
     @datalink.setter
     def datalink(self, value):
-        if pcap_set_datalink(self._p, value) == -1:
+        if pcap_set_datalink(self._p, value) < 0:
             raise PcapPyException(self.err)
 
     @property
     def snapshot(self):
         return pcap_snapshot(self._p)
+
+    @snapshot.setter
+    def snapshot(self, value):
+        if pcap_set_snaplen(self._p, value) < 0:
+            raise PcapPyException(self.err)
 
     snaplen = snapshot
 
@@ -415,12 +515,17 @@ class PcapPyDead(PcapPyBase):
 
     def __init__(self, linktype=LINKTYPE_ETHERNET, snaplen=64):
         super(PcapPyDead, self).__init__()
+        errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
         self._p = pcap_open_dead(linktype, snaplen)
         if not self._p:
-            raise PcapPyException(self.errbuf.raw)
+            raise PcapPyException(errbuf.raw)
 
 
 class PcapPyAlive(PcapPyBase):
+
+    def __init__(self):
+        super(PcapPyAlive, self).__init__()
+        self._direction = 0
 
     def _parse_entry(self, ph, pd):
         if platform == 'darwin':
@@ -480,16 +585,18 @@ class PcapPyAlive(PcapPyBase):
 
     @property
     def nonblock(self):
-        r = pcap_getnonblock(self._p, c_char_p((addressof(self.errbuf))))
+        errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
+        r = pcap_getnonblock(self._p, c_char_p((addressof(errbuf))))
         if r == -1:
-            raise PcapPyException(self.errbuf.raw)
+            raise PcapPyException(errbuf.raw)
         return r
 
     @nonblock.setter
     def nonblock(self, value):
-        r = pcap_setnonblock(self._p, value, c_char_p((addressof(self.errbuf))))
-        if r == -1:
-            raise PcapPyException(self.errbuf.raw)
+        errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
+        r = pcap_setnonblock(self._p, value, c_char_p((addressof(errbuf))))
+        if r < 0:
+            raise PcapPyException(errbuf.raw)
 
     @property
     def stats(self):
@@ -522,8 +629,35 @@ class PcapPyAlive(PcapPyBase):
             self._bpf = self.compile(value)
         else:
             self._bpf = value
-        if pcap_setfilter(self._p, pointer(self._bpf._bpf)) == -1:
+        if pcap_setfilter(self._p, pointer(self._bpf._bpf)) < 0:
             raise PcapPyException(self.err)
+
+    @property
+    def selectable_fd(self):
+        return pcap_get_selectable_fd(self._p)
+
+    @property
+    def can_set_rfmon(self):
+        return pcap_can_set_rfmon(self._p) == 1
+
+    @property
+    def direction(self):
+        return self._direction
+
+    @direction.setter
+    def direction(self, value):
+        if value not in [PCAP_D_INOUT, PCAP_D_IN, PCAP_D_OUT]:
+            raise ValueError(
+                'Must be either PCAP_D_INOUT (%s), PCAP_D_IN (%s), or PCAP_D_OUT (%s)' %
+                (
+                    PCAP_D_INOUT,
+                    PCAP_D_IN,
+                    PCAP_D_OUT
+                )
+            )
+        if pcap_setdirection(self._p, value) < 0:
+            raise PcapPyException(self.err)
+        self._direction = value
 
 
 class PcapPyOffline(PcapPyAlive):
@@ -532,13 +666,14 @@ class PcapPyOffline(PcapPyAlive):
 
     def __init__(self, file_):
         super(PcapPyOffline, self).__init__()
+        errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
         if isinstance(file_, file):
-            self._p = pcap_fopen_offline(PyFile_AsFile(file_), c_char_p((addressof(self.errbuf))))
+            self._p = pcap_fopen_offline(PyFile_AsFile(file_), c_char_p((addressof(errbuf))))
         else:
-            self._p = pcap_open_offline(file_, c_char_p((addressof(self.errbuf))))
+            self._p = pcap_open_offline(file_, c_char_p((addressof(errbuf))))
         self.filename = file_
         if not self._p:
-            raise PcapPyException(self.errbuf.raw)
+            raise PcapPyException(errbuf.raw)
 
     @property
     def file(self):
@@ -554,11 +689,32 @@ class PcapPyLive(PcapPyAlive):
 
     _is_base = False
 
-    def __init__(self, device, snaplen=64, promisc=1, to_ms=1000):
+    def __init__(self, device, snaplen=64, promisc=1, to_ms=1000, activate=True, **kwargs):
         super(PcapPyLive, self).__init__()
-        self._p = pcap_open_live(device, snaplen, promisc, to_ms, c_char_p((addressof(self.errbuf))))
-        if not self._p:
-            raise PcapPyException(self.errbuf.raw)
+        self._device = device
+        self._promisc = promisc
+        self._timeout = to_ms
+        self._activate = activate
+        self._rfmon = kwargs.get('rfmon', 0)
+        self._buffer_size = kwargs.get('buffer_size', None)
+        errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
+        if self._activate and not self._rfmon and self._buffer_size is None:
+            self._p = pcap_open_live(device, snaplen, promisc, to_ms, c_char_p((addressof(errbuf))))
+            if not self._p:
+                raise PcapPyException(errbuf.raw)
+        else:
+            self._p = pcap_create(device, c_char_p((addressof(errbuf))))
+            if not self._p:
+                raise PcapPyException(errbuf.raw)
+            self.snaplen = snaplen
+            self.promisc = self._promisc
+            self.timeout = self._timeout
+            if self._rfmon:
+                self.rfmon = self._rfmon
+            if self._buffer_size is not None:
+                self.buffer_size = self._buffer_size
+            if self._activate:
+                self.activate()
 
     def sendpacket(self, data):
         r = pcap_sendpacket(self._p, data, len(data))
@@ -571,3 +727,51 @@ class PcapPyLive(PcapPyAlive):
         if r == -1:
             raise PcapPyException(self.err)
         return r
+
+    def activate(self):
+        if pcap_activate(self._p) < 0:
+            raise PcapPyException(self.err)
+
+    @property
+    def device(self):
+        return self._device
+
+    @property
+    def rfmon(self):
+        return self._rfmon
+
+    @rfmon.setter
+    def rfmon(self, value):
+        if pcap_set_rfmon(self._p, value) < 0:
+            raise PcapPyException(self.err)
+        self._rfmon = value
+
+    @property
+    def timeout(self):
+        return self._timeout
+
+    @timeout.setter
+    def timeout(self, value):
+        if pcap_set_timeout(self._p, value) < 0:
+            raise PcapPyException(self.err)
+        self._timeout = value
+
+    @property
+    def promisc(self):
+        return self._promisc
+
+    @promisc.setter
+    def promisc(self, value):
+        if pcap_set_promisc(self._p, value) < 0:
+            raise PcapPyException(self.err)
+        self._promisc = value
+
+    @property
+    def buffer_size(self):
+        return self._promisc
+
+    @buffer_size.setter
+    def buffer_size(self, value):
+        if pcap_set_buffer_size(self._p, value) < 0:
+            raise PcapPyException(self.err)
+        self._buffer_size = value
