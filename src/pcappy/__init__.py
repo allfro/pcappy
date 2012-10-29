@@ -14,7 +14,7 @@ __copyright__ = 'Copyright 2012, PcapPy Project'
 __credits__ = ['Nadeem Douba']
 
 __license__ = 'GPL'
-__version__ = '0.2'
+__version__ = '0.3'
 __maintainer__ = 'Nadeem Douba'
 __email__ = 'ndouba@gmail.com'
 __status__ = 'Development'
@@ -659,6 +659,10 @@ class PcapPyAlive(PcapPyBase):
             raise PcapPyException(self.err)
         self._direction = value
 
+    @property
+    def fileno(self):
+        return pcap_fileno(self._p)
+
 
 class PcapPyOffline(PcapPyAlive):
 
@@ -679,10 +683,6 @@ class PcapPyOffline(PcapPyAlive):
     def file(self):
         f = pcap_file(self._p)
         return PyFile_FromFile(f, self.filename, "rb", None)
-
-    @property
-    def fileno(self):
-        return pcap_fileno(self._p)
 
 
 class PcapPyLive(PcapPyAlive):

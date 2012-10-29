@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 setup(
     name='pcappy',
     author='Nadeem Douba',
-    version='0.2',
+    version='0.3',
     author_email='ndouba@gmail.com',
     description='Pure Python wrapper for PCAP library.',
     license='GPL',
