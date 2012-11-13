@@ -688,8 +688,6 @@ class PcapPyOffline(PcapPyAlive):
 
 class PcapPyLive(PcapPyAlive):
 
-    _BIOCIMMEDIATE=-2147204496
-
     _is_base = False
 
     def __init__(self, device, snaplen=64, promisc=1, to_ms=1000, activate=True, **kwargs):
@@ -705,7 +703,7 @@ class PcapPyLive(PcapPyAlive):
             self._p = pcap_open_live(device, snaplen, promisc, to_ms, c_char_p((addressof(errbuf))))
             if not to_ms:
                 try:
-                    ioctl(self.fileno, self._BIOCIMMEDIATE, pack("I", 1))
+                    ioctl(self.fileno, BIOCIMMEDIATE, pack("I", 1))
                 except IOError:
                     pass
             if not self._p:
