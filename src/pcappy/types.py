@@ -3,7 +3,7 @@
 from ctypes import *
 from sys import platform
 
-from pcappy.constants import PCAP_ERRBUF_SIZE
+from constants import PCAP_ERRBUF_SIZE
 
 
 __author__ = 'Nadeem Douba'

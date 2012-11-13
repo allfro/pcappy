@@ -6,8 +6,8 @@ from struct import pack, unpack
 from fcntl import ioctl
 from binascii import hexlify
 
-from pcappy.constants import *
-from pcappy.functions import *
+from constants import *
+from functions import *
 
 
 __author__ = 'Nadeem Douba'

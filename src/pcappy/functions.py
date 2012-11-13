@@ -3,7 +3,7 @@
 from ctypes import *
 from ctypes.util import find_library
 
-from pcappy.types import *
+from types import *
 
 
 __author__ = 'Nadeem Douba'
