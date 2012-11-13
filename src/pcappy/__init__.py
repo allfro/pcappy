@@ -3,6 +3,7 @@
 from ctypes import POINTER, pointer
 from socket import *
 from struct import pack, unpack
+from fcntl import ioctl
 from binascii import hexlify
 
 from pcappy.constants import *
@@ -687,6 +688,8 @@ class PcapPyOffline(PcapPyAlive):
 
 class PcapPyLive(PcapPyAlive):
 
+    _BIOCIMMEDIATE=-2147204496
+
     _is_base = False
 
     def __init__(self, device, snaplen=64, promisc=1, to_ms=1000, activate=True, **kwargs):
@@ -699,7 +702,16 @@ class PcapPyLive(PcapPyAlive):
         self._buffer_size = kwargs.get('buffer_size', None)
         errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
         if self._activate and not self._rfmon and self._buffer_size is None:
+            immediate = False
+            if not to_ms:
+                to_ms = 1000
+                immediate = True
             self._p = pcap_open_live(device, snaplen, promisc, to_ms, c_char_p((addressof(errbuf))))
+            if immediate:
+                try:
+                    ioctl(self.fileno, self._BIOCIMMEDIATE, pack("I", 1))
+                except IOError:
+                    pass
             if not self._p:
                 raise PcapPyException(errbuf.raw)
         else:
