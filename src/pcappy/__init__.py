@@ -702,12 +702,8 @@ class PcapPyLive(PcapPyAlive):
         self._buffer_size = kwargs.get('buffer_size', None)
         errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
         if self._activate and not self._rfmon and self._buffer_size is None:
-            immediate = False
-            if not to_ms:
-                to_ms = 1000
-                immediate = True
             self._p = pcap_open_live(device, snaplen, promisc, to_ms, c_char_p((addressof(errbuf))))
-            if immediate:
+            if not to_ms:
                 try:
                     ioctl(self.fileno, self._BIOCIMMEDIATE, pack("I", 1))
                 except IOError:
