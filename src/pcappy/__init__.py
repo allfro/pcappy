@@ -774,7 +774,7 @@ class PcapPyLive(PcapPyAlive):
 
     @property
     def buffer_size(self):
-        return self._promisc
+        return self._buffer_size
 
     @buffer_size.setter
     def buffer_size(self, value):
