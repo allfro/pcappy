@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
+import sys
 from ctypes import POINTER, pointer
 from socket import *
 from struct import pack, unpack
-from fcntl import ioctl
 from binascii import hexlify
 
 from constants import *
@@ -701,7 +701,8 @@ class PcapPyLive(PcapPyAlive):
         errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
         if self._activate and not self._rfmon and self._buffer_size is None:
             self._p = pcap_open_live(device, snaplen, promisc, to_ms, c_char_p((addressof(errbuf))))
-            if not to_ms:
+            if not to_ms and (sys.platform.startswith('linux') or sys.platform == 'darwin'):                
+                from fcntl import ioctl
                 try:
                     ioctl(self.fileno, BIOCIMMEDIATE, pack("I", 1))
                 except IOError:
