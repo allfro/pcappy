@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import sys
 from ctypes import *
 from ctypes.util import find_library
 
@@ -16,8 +17,12 @@ __maintainer__ = 'Nadeem Douba'
 __email__ = 'ndouba@gmail.com'
 __status__ = 'Development'
 
+_pcap = None
 
-_pcap = cdll.LoadLibrary(find_library('pcap'))
+if sys.platform == 'win32':
+    _pcap = cdll.LoadLibrary(find_library('wpcap.dll'))
+else:
+    _pcap = cdll.LoadLibrary(find_library('pcap'))
 
 
 pcap_functions = globals()
