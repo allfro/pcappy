@@ -377,7 +377,7 @@ def strerror(status):
 
 
 def compile_nopcap(snaplen=64, linktype=LINKTYPE_ETHERNET, expr='', optimize=1, mask='0.0.0.0'):
-    PcapPyBpfProgram(expr, optimize, mask, linktype=linktype, snaplen=snaplen)
+    return PcapPyBpfProgram(expr, optimize, mask, linktype=linktype, snaplen=snaplen)
 
 
 class PcapPyBase(object):
