@@ -3,7 +3,7 @@
 from ctypes import *
 from sys import platform
 
-from constants import PCAP_ERRBUF_SIZE
+from .constants import PCAP_ERRBUF_SIZE
 
 
 __author__ = 'Nadeem Douba'
@@ -363,6 +363,6 @@ try:
     PyFile_AsFile.restype = FILE_ptr
     PyFile_AsFile.argtypes = [py_object]
 except AttributeError:
-    del FILE_ptr
+    FILE_ptr = c_void_p
 
 
